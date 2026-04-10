@@ -65,7 +65,7 @@ Tres círculos rojos en el suelo drenan batería mientras el dron permanece sobr
 
 ---
 
-## 🎨 Técnicas gráficas implementadas
+## Técnicas gráficas implementadas
 
 - **Geometría procedimental** — dron, hangar, props (cajones, barriles, toros) construidos con primitivas Three.js.
 - **Cámara virtual** — cámara en tercera persona con suavizado (*lerp*) y límites de escena.
@@ -78,7 +78,7 @@ Tres círculos rojos en el suelo drenan batería mientras el dron permanece sobr
 
 ---
 
-## 📦 Dependencias
+## Dependencias
 
 | Paquete | Uso |
 |---|---|
@@ -87,7 +87,7 @@ Tres círculos rojos en el suelo drenan batería mientras el dron permanece sobr
 
 ---
 
-## 🌐 Despliegue
+## Despliegue
 
 El build se publica directamente en **GitHub Pages** apuntando a la carpeta `dist/` generada por `npm run build`.
 
