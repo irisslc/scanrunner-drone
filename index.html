@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScanRunner Drone</title>
+  </head>
+  <body>
+    <div id="hud">
+      <div id="status">Objetivos: 0/5</div>
+      <div id="time">Tiempo: 0.0s</div>
+      <div id="scan">Escaneo: 0%</div>
+      <div id="crosshair">+</div>
+    </div>
+
+    <!-- IMPORTANTE: Vite carga el JS desde /src/main.js -->
+    <script type="module" src="/src/main.js"></script>
+
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; }
+      #hud { position: fixed; top: 12px; left: 12px; color: white; font-family: system-ui, sans-serif; }
+      #crosshair { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 22px; opacity: 0.8; }
+    </style>
+  </body>
+</html>
