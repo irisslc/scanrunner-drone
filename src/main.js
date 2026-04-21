@@ -117,10 +117,79 @@ function makeWallTexture() {
 }
 
 // ==============================
+// Skybox procedural (6 caras canvas con campo de estrellas)
+// ==============================
+function makeSkyboxCubeTex() {
+  const SIZE = 512;
+
+  // Dibuja una cara del cubo con fondo estelar sci-fi
+  function makeFace(nebulaColor) {
+    const c = document.createElement("canvas");
+    c.width = c.height = SIZE;
+    const ctx = c.getContext("2d");
+
+    // Fondo: gradiente oscuro azul-negro
+    const bg = ctx.createLinearGradient(0, 0, SIZE, SIZE);
+    bg.addColorStop(0, "#020610");
+    bg.addColorStop(1, "#050c1e");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Nébula suave
+    const ng = ctx.createRadialGradient(SIZE * .55, SIZE * .45, 0, SIZE * .5, SIZE * .5, SIZE * .65);
+    ng.addColorStop(0, nebulaColor);
+    ng.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = ng;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    // Estrellas pequeñas (blancas)
+    for (let i = 0; i < 320; i++) {
+      const x = Math.random() * SIZE;
+      const y = Math.random() * SIZE;
+      const r = Math.random() * 1.4 + 0.2;
+      const a = 0.35 + Math.random() * 0.65;
+      ctx.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Estrellas de colores (azuladas, doradas, verdes)
+    const starColors = ["#88ccff", "#ffddaa", "#aaffcc", "#ffffff"];
+    for (let i = 0; i < 22; i++) {
+      const x = Math.random() * SIZE;
+      const y = Math.random() * SIZE;
+      const col = starColors[Math.floor(Math.random() * starColors.length)];
+      ctx.fillStyle = col;
+      ctx.globalAlpha = 0.55 + Math.random() * 0.45;
+      ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    return c;
+  }
+
+  // Tonos de nébula distintos por cara para dar variedad
+  const nebulaColors = [
+    "rgba(0,40,120,0.12)",  // +X
+    "rgba(0,40,120,0.12)",  // -X
+    "rgba(0,20,80,0.08)",   // +Y (arriba, más oscuro)
+    "rgba(0,10,40,0.06)",   // -Y (abajo)
+    "rgba(20,0,100,0.14)",  // +Z  (tono más morado)
+    "rgba(0,60,100,0.14)",  // -Z  (tono más cyan)
+  ];
+
+  const faces = nebulaColors.map(col => makeFace(col));
+  const tex = new THREE.CubeTexture(faces);
+  tex.needsUpdate = true;
+  return tex;
+}
+
+const skyboxTex = makeSkyboxCubeTex();
+
+// ==============================
 // Escena principal
 // ==============================
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x060c18);
+scene.background = skyboxTex;          // skybox en lugar de color sólido
 scene.fog = new THREE.FogExp2(0x060c18, 0.024);
 
 const camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.1, 200);
@@ -156,6 +225,20 @@ for (const { color, pos } of neonData) {
   pl.position.set(...pos);
   scene.add(pl);
 }
+
+// ── Foco fijo con sombras (proyecta sombras dramáticas desde la esquina) ──
+// Esta luz tiene ángulo estrecho y alta resolución de sombra para que
+// los objetos proyecten sombras nítidas sobre el suelo.
+const shadowSpot = new THREE.SpotLight(0xfff4e0, 2.8, 38, Math.PI / 9, 0.28, 1.4);
+shadowSpot.position.set(-8, 10, -8);          // esquina superior izquierda
+shadowSpot.target.position.set(3, 0, 3);      // apunta al centro del hangar
+shadowSpot.castShadow = true;
+shadowSpot.shadow.mapSize.set(2048, 2048);    // mapa de sombra de alta resolución
+shadowSpot.shadow.camera.near = 3;
+shadowSpot.shadow.camera.far  = 40;
+shadowSpot.shadow.bias = -0.002;              // elimina shadow acne
+scene.add(shadowSpot);
+scene.add(shadowSpot.target);
 
 // foco que sigue al dron
 const spot = new THREE.SpotLight(0x66aaff, 1.5, 25, Math.PI/7, 0.5, 1);
@@ -388,24 +471,51 @@ function checkHazard() {
 const enemyMinY = 1.05;
 const enemyMaxY = 4.25;
 
-const enemy1VerticalSpeed = 5.2; // el rojo reacciona más rápido en altura
-const enemy2VerticalSpeed = 3.8; // el púrpura va algo más pesado
+const enemy1VerticalSpeed = 5.2;
+const enemy2VerticalSpeed = 3.8;
 const enemy1HoverAmp = 0.22;
 const enemy2HoverAmp = 0.48;
 const enemy1HoverFreq = 2.2;
 const enemy2HoverFreq = 1.4;
 
-const enemy1 = new THREE.Mesh(
-  new THREE.SphereGeometry(.42, 22, 22),
-  new THREE.MeshStandardMaterial({ color: 0xff3344, emissive: 0x660011, emissiveIntensity: 1.5, roughness: .3, metalness: .2 })
-);
+// ── ENV MAP: Reflexión (enemy1, esfera roja) ──────────────────────────────
+// Usamos el skyboxTex con mapping CubeReflectionMapping (valor por defecto).
+// MeshStandardMaterial con metalness alto + envMap produce un espejo que
+// refleja el entorno (el cielo estrellado del skybox).
+const enemy1Mat = new THREE.MeshStandardMaterial({
+  color:            0xff3344,
+  emissive:         0x330008,
+  emissiveIntensity: 0.35,
+  roughness:        0.04,   // casi perfectamente liso → reflejo nítido
+  metalness:        0.92,   // muy metálico → predomina el envMap
+  envMap:           skyboxTex,          // CubeReflectionMapping (defecto)
+  envMapIntensity:  1.4,
+});
+
+const enemy1 = new THREE.Mesh(new THREE.SphereGeometry(.42, 22, 22), enemy1Mat);
 enemy1.castShadow = true;
 scene.add(enemy1);
 
-const enemy2 = new THREE.Mesh(
-  new THREE.SphereGeometry(.65, 22, 22),
-  new THREE.MeshStandardMaterial({ color: 0xaa44ff, emissive: 0x440088, emissiveIntensity: 1.2, roughness: .35, metalness: .2 })
-);
+// ── ENV MAP: Refracción (enemy2, esfera púrpura) ──────────────────────────
+// Clonamos el skyboxTex y cambiamos su mapping a CubeRefractionMapping.
+// refractionRatio controla la "apertura" de la lente: 1.0 = sin refracción,
+// valores menores (~0.85-0.95) dan el efecto de vidrio o cristal.
+const refractionTex = skyboxTex.clone();
+refractionTex.mapping = THREE.CubeRefractionMapping;
+refractionTex.needsUpdate = true;
+
+const enemy2Mat = new THREE.MeshPhongMaterial({
+  color:            0xcc88ff,
+  emissive:         0x440088,
+  emissiveIntensity: 0.6,
+  shininess:        160,
+  envMap:           refractionTex,      // CubeRefractionMapping → refracción
+  refractionRatio:  0.88,              // índice: 0=mucha refracción, 1=ninguna
+  transparent:      true,
+  opacity:          0.82,
+});
+
+const enemy2 = new THREE.Mesh(new THREE.SphereGeometry(.65, 22, 22), enemy2Mat);
 enemy2.castShadow = true;
 scene.add(enemy2);
 
